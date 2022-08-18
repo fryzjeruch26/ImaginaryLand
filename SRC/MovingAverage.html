@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+  <meta charset="utf-8"/>
+</head>
+<style> 
+.ilabel{
+  display:inline-block;
+  padding:4px;
+  font-size: 27px; 
+}
+.kpis{
+ display: block;
+ width: 80px;
+ height: 20px;
+ font-size: 17px;  
+}
+#AVERAGED{ 
+ float:left;                
+ width:100%;               
+ opacity:0.8;
+}
+</style> 
+</body>
+<div class="ilabel" id="nice"> 
+</div>
+    <p>
+        <label style="margin-left: 40%;" class="ilabel" id="res" for="myRange">AVERAGED :</label>
+    <p>
+        <div style="margin-left:10px; height:270px; float:left; border-radius:10px; border:3px solid #2196f3; padding:8px;">
+            <label style="display: block;">Set window size</label>                     
+	    <input type="text" class="kpis"  id="Wsize">
+            <p>
+	    <button style="border-radius:20px;border: 3px solid red;font-size:17px" id="B0" onclick="SetWindowSize()">SET</button>                  
+            <label style="display: block;">max N for Rand</label>   
+	    <input type="text" class="kpis"  id="MxRand">
+            <p>
+	    <button style="border-radius:20px;border: 3px solid red;font-size:17px" id="B1" onclick="ChRand()">SET</button>               
+            <label style="display: block;">speed [ms]</label>                     
+	    <input type="text" class="kpis"  id="speed">
+            <p>
+	    <button style="border-radius:20px;border: 3px solid red;font-size:17px" id="B2" onclick="ChSpeed()">SET</button>                             
+	    <button style="border-radius:20px;border: 3px solid red;font-size:17px" id="B3" onclick="pause()">START</button>                 
+       </div>
+    <p>
+<div id="AVERAGED" >
+</div>
+
+<script>
+var WINDOW_SIZE = 0;
+var INDEX = 0;
+var SUM = 0;
+var READINGS = [];
+var AVERAGED = 0;
+var one = 0;
+var dataR = [[]];
+var zdupy33 =[];
+var zdupy22 =[];
+var p = true;
+var range = 501;
+var timeT = 100;
+var j = 0;
+var tm;
+var bbs = false;
+
+var id = 0;
+var layouts = [[{ width: 1200, height: 500, xaxis: { range: [0, 120] }, yaxis: {range: [0, range]}}]];
+var key = "AVERAGED";
+
+function SetWindowSize(){
+    var temp =  document.getElementById("Wsize").value;
+    
+    if(temp<=0 && !p){
+        document.getElementById("res").innerHTML = "window size can't be 0 ! last value which is:" + WINDOW_SIZE + " will be used";
+        bbs = true;
+        tm = setTimeout(bs, 2000);
+        console.log("tm",tm)
+        return;
+    }else if(temp<=0 && p){
+        document.getElementById("res").innerHTML = "window size can't be 0 !";
+        return;
+    }else{
+       WINDOW_SIZE = temp;
+       document.getElementById("res").innerHTML = "AVERAGED :"
+    }
+    var el = document.getElementById("nice");
+    INDEX = 0;
+    AVERAGED = 0
+    SUM = 0;
+    while(el.hasChildNodes()){
+       el.removeChild(el.childNodes[0]);
+    }
+
+    for(var z = 0; z<WINDOW_SIZE; z++){
+        const laba = document.createElement("label");
+        laba.className="ilabel";
+        laba.setAttribute("id", String(z));
+        laba.innerHTML = 0;
+        READINGS[z]  = 0;
+        document.getElementById("nice").appendChild(laba);
+    }   
+}
+
+function bs(){
+bbs = false;
+clearTimeout(tm);
+}
+
+function pause(){
+  p = !p;
+  console.log("p",p);
+  if(p){
+    document.getElementById("B3").innerHTML= "START";
+    clearInterval(id);
+  }else if(!p){
+    if(WINDOW_SIZE<=0){
+        document.getElementById("res").innerHTML = "window size can't be  0!"
+        p = true;
+        document.getElementById("B3").innerHTML= "START";
+     return;
+    }
+    document.getElementById("B3").innerHTML= "STOP";
+    startInterval(timeT);
+  }
+}
+
+function ChSpeed(){
+  clearInterval(id);
+  timeT = document.getElementById("speed").value;
+  startInterval(timeT);
+}
+
+function ChRand(){
+  range = document.getElementById("MxRand").value;
+  layouts[0][0].yaxis.range[1] = range;
+}
+
+function plot(res){
+  dataR[j].splice(0,0,res); 
+    if(j<=0){
+      zdupy33.push(dataR[j].length -1);
+      zdupy22.splice(0,0,range/2);
+    }
+
+    if(zdupy33.length > 121){
+      zdupy33.pop();
+      zdupy22.pop();
+    }
+
+  var data = [
+      {
+        type: "indicator",
+        mode: "number+delta",
+        value: res,
+        delta: { reference: range/2, valueformat: ".2f" },
+        ticker: { showticker: true },
+        domain: { y: [0.15, 0.95], x: [0.15, 0.95] },
+        title: { text: key },
+    
+     },
+     {
+       y: dataR[j],
+       name: ''
+     },
+     {
+       x: [], 
+       y: [], 
+       type: 'scatter',
+       name: 'proximately expected val'
+     }
+   ];
+
+    if(j==0){
+    data[2].x = zdupy33;
+    data[2].y = zdupy22;
+    data[1].name = 'AVERAGED';
+    data[0].delta.reference = range/2; 
+    }
+
+    Plotly.newPlot(key, data, layouts[j][0]);  
+
+if(dataR[j].length > 120){
+   dataR[j].pop();
+}
+}
+
+function startInterval(_interval) {       
+id = setInterval(function() {
+if(!p){
+     one = Math.floor(Math.random() * range);    
+     SUM = SUM - READINGS[INDEX];       // Remove the oldest entry from the sum
+     READINGS[INDEX] = one;           // Add the newest reading to the window
+     SUM = SUM + one                // Add the newest reading to the sum
+     AVERAGED = SUM / WINDOW_SIZE;
+     //console.log("zgsfsf",READINGS);
+    // console.log("time",timeT);
+     document.getElementById(String(INDEX)).style.color = "red";
+     if(INDEX>0){
+      document.getElementById(String(INDEX - 1)).style.color = "black";
+     }
+     
+     if(INDEX<=0){
+         document.getElementById(String(WINDOW_SIZE - 1)).style.color = "black";
+     }
+     
+    document.getElementById(String(INDEX)).innerHTML = READINGS[INDEX]; //"reading array" + "[" + INDEX + "]" +"=" + 
+    if(!bbs){
+     document.getElementById("res").innerHTML = "AVERAGED :" + AVERAGED;
+    }
+    INDEX = (INDEX+1) % WINDOW_SIZE;   // Increment the index, and wrap to 0 if it exceeds the window size
+    plot(String(AVERAGED));
+     }
+}, _interval); 
+}
+
+
+
+</script>
+
+
+
+</body>
+
+</html>
